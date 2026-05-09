@@ -1,0 +1,35 @@
+.dashboard {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 200;
+  padding: 14px 20px;
+  max-width: 400px;
+  font-size: var(--font-size-sm);
+  color: var(--accent-danger);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: fadeIn 0.3s ease forwards;
+  cursor: pointer;
+}
+
+/* Spinner utility */
+:global(.spin) {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

@@ -1,0 +1,455 @@
+# Frontend Product Requirements Document (PRD)
+**Project:** Enterprise AI Onboarding & Compliance Accelerator (Agentic LMS)  
+**Stack:** React.js (via Vite) + CSS Modules  
+**Document Version:** v2.0 (Finalized — Cross-Referenced with Backend)  
+**Last Updated:** 2026-05-09
+
+---
+
+## 1. Frontend System Specification (UI Spec)
+
+### 1.1. Core Requirements
+
+| ID | Requirement | Rationale |
+|---|---|---|
+| FR-01 | **SPA (Single Page Application):** No page reloads. All view transitions managed via React state. | Prevents loss of streaming connection and in-memory chat history. |
+| FR-02 | **Real-time SSE Streaming:** Chat component must parse `text/event-stream` from `POST` endpoint using `fetch()` + `ReadableStream` (not `EventSource`, which only supports `GET`). | Backend uses `POST` for chat (because it sends a JSON body). `EventSource` API cannot do `POST`. |
+| FR-03 | **Asynchronous UI Blocking:** Disable chat input when `agentState` is `typing`, `evaluating`, or `requires_approval`. | Prevents user from sending overlapping messages while the graph is mid-execution. Backend does not queue multiple invocations per session. |
+| FR-04 | **Graceful Error Display:** Catch SSE `error` events and display a non-technical, user-friendly toast/banner. | Backend emits `event: error` with `{"detail": "..."}` on failures. |
+| FR-05 | **Auto-Scroll:** Chat window must auto-scroll to the latest message during streaming. User scroll-up should pause auto-scroll (chat app UX pattern). | Standard chat UX best practice. |
+| FR-06 | **Responsive Layout:** Must be functional on screens ≥ 1024px. Mobile is out-of-scope for MVP. | Enterprise dashboards are primarily used on desktops. |
+
+### 1.2. State Management (React `useState` / Context)
+
+The application will maintain a centralized state, lifting state to `<App />` or using React Context:
+
+```typescript
+interface AppState {
+  // === Session ===
+  session: {
+    session_id: string;
+    employee_name: string;
+    employee_role: string;
+  } | null;
+
+  // === Chat ===
+  messages: Array<{
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    agent?: string;              // e.g., "explainer_node", "assessor_node"
+    timestamp: Date;
+  }>;
+
+  // === Agent Lifecycle ===
+  agentState: 'idle' | 'typing' | 'evaluating' | 'requires_approval';
+  activeAgent: string | null;    // Currently executing node name
+
+  // === Curriculum Progress ===
+  syllabus: string[];            // Full ordered topic list from Planner
+  completedTopics: string[];     // Topics passed
+  currentTopic: string;          // Active topic
+
+  // === Assessment ===
+  quizScore: number;             // 0–100
+  isCertified: boolean;
+
+  // === Supervisor HITL ===
+  requiresApproval: boolean;     // True when graph is interrupted
+  pendingNodes: string[];        // e.g., ["certifier_node"]
+}
+```
+
+> [!IMPORTANT]
+> The `syllabus` array is populated at session creation (returned by `POST /sessions`). The `completedTopics`, `quizScore`, and `currentTopic` are updated via the `state_update` SSE event during chat streaming.
+
+### 1.3. Component Architecture
+
+```text
+<App />
+├── <SetupScreen />              — Session creation form
+└── <DashboardLayout />          — Main 2-column grid
+    ├── <Sidebar />              — Left panel
+    │   ├── <ProfileCard />      — Name, Role, Avatar
+    │   ├── <SyllabusTracker />  — Topic checklist with progress
+    │   └── <ScorePanel />       — Live quiz score + certification status
+    ├── <ChatWindow />           — Right/main panel
+    │   ├── <MessageList />      — Scrollable message container
+    │   │   └── <MessageBubble /> — Individual message (user vs assistant styling)
+    │   ├── <TypingIndicator />  — "Agent is thinking..." animation
+    │   └── <ChatInput />        — Textarea + Send button (disabled during agent work)
+    └── <SupervisorModal />      — Glassmorphism overlay (conditionally rendered)
+```
+
+> [!NOTE]
+> `<SupervisorModal />` is rendered conditionally when `requiresApproval === true`. In a production multi-user system, the Supervisor would have a separate portal. For this portfolio MVP, both roles (Trainee + Supervisor) share the same UI, with the modal simulating the supervisor's action.
+
+---
+
+## 2. User Flow Diagram
+
+### 2.1. Primary Flow (Happy Path)
+
+```mermaid
+graph TD
+    Start([User Opens App]) --> SetupView[Setup Screen]
+    SetupView -->|Fill Name + Role| CallCreate["POST /api/v1/sessions"]
+    CallCreate --> ReceiveSession["Receive: session_id, welcome_message, syllabus[]"]
+    ReceiveSession --> Dashboard[Dashboard View]
+    
+    Dashboard --> UserTypes[User Types Message]
+    UserTypes --> CallChat["POST /api/v1/sessions/{id}/chat"]
+    
+    CallChat --> SSEStream{SSE Event Stream}
+    
+    SSEStream -->|"event: agent_start"| ShowTyping["Show 'Agent is thinking...'"]
+    SSEStream -->|"event: token"| AppendToken["Append token to chat bubble"]
+    SSEStream -->|"event: agent_end"| HideTyping["Hide typing indicator"]
+    SSEStream -->|"event: state_update"| UpdateSidebar["Update Score, Topics, Current Topic"]
+    SSEStream -->|"event: done"| ReEnable["Re-enable chat input"]
+    SSEStream -->|"event: requires_approval"| ShowModal["Show Supervisor Modal"]
+    SSEStream -->|"event: error"| ShowError["Show error toast"]
+    
+    ShowModal --> SupervisorActs{Supervisor Decision}
+    SupervisorActs -->|Approve| CallApprove["POST /api/v1/sessions/{id}/approve"]
+    SupervisorActs -->|Reject| CallReject["POST /api/v1/sessions/{id}/reject"]
+    
+    CallApprove --> CertResult["Show certification message"]
+    CallReject --> Dashboard
+```
+
+### 2.2. Edge Cases & Guards
+
+```mermaid
+graph TD
+    UserSends[User Sends Message] --> CheckCertified{isCertified?}
+    CheckCertified -->|Yes| BlockMsg["Backend returns: 'Already certified'"]
+    CheckCertified -->|No| CheckApproval{requiresApproval?}
+    CheckApproval -->|Yes| BlockMsg2["Backend returns: 'Awaiting supervisor'"]
+    CheckApproval -->|No| Proceed[Proceed to SSE Stream]
+```
+
+> [!TIP]
+> Both guards are implemented server-side in `chat.py` (lines 193-212), returning a non-streaming `ChatResponse` JSON. The frontend should detect non-SSE responses (Content-Type = `application/json` vs `text/event-stream`) and handle them as system messages.
+
+---
+
+## 3. Low-Fidelity Wireframes
+
+### View 1: Setup Screen
+```text
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║              ◆  NEXUSPAY  AI  ONBOARDING                      ║
+║              Enterprise Compliance Training                   ║
+║                                                               ║
+║       ┌───────────────────────────────────────────────┐       ║
+║       │                                               │       ║
+║       │   Full Name                                   │       ║
+║       │   ┌───────────────────────────────────────┐   │       ║
+║       │   │ e.g., Willy Hanafi                    │   │       ║
+║       │   └───────────────────────────────────────┘   │       ║
+║       │                                               │       ║
+║       │   Job Role                                    │       ║
+║       │   ┌───────────────────────────────────────┐   │       ║
+║       │   │ ▼  Select role...                     │   │       ║
+║       │   │    ● Software Engineer                │   │       ║
+║       │   │    ● Compliance Officer               │   │       ║
+║       │   │    ● Financial Analyst                │   │       ║
+║       │   │    ● IT Administrator                 │   │       ║
+║       │   │    ● General Staff                    │   │       ║
+║       │   └───────────────────────────────────────┘   │       ║
+║       │                                               │       ║
+║       │        ┌─────────────────────────┐            │       ║
+║       │        │  ▶  START ONBOARDING    │            │       ║
+║       │        └─────────────────────────┘            │       ║
+║       │                                               │       ║
+║       └───────────────────────────────────────────────┘       ║
+║                                                               ║
+║       Powered by LangGraph & Gemini AI                        ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+
+> [!NOTE]
+> **Design Decision — Dropdown vs Free Text for Role:**
+> Using a dropdown (select) instead of a free-text input ensures role names are consistent with the Curriculum Planner agent's expectations. The options map directly to the SOP categories we've created (Engineering, Compliance, Finance, IT, General). This prevents the user from typing "SWE" or "dev" which might confuse the Planner.
+
+### View 2: Main Dashboard (Active Chat & Progress)
+```text
+┌─── SIDEBAR (280px) ───────┬─── CHAT AREA (flex-grow) ────────────┐
+│                            │                                      │
+│  ◆ NexusPay LMS            │  ┌──────────────────────────────┐   │
+│                            │  │ 🤖 Curriculum Planner         │   │
+│  ╔══════════════════════╗  │  │ Welcome, Willy! Based on your │   │
+│  ║ 👤 Willy Hanafi      ║  │  │ role as Software Engineer,    │   │
+│  ║    Software Engineer ║  │  │ I've prepared a 4-topic       │   │
+│  ╚══════════════════════╝  │  │ syllabus for you...           │   │
+│                            │  └──────────────────────────────┘   │
+│  ── SYLLABUS ────────────  │                                      │
+│  ✅ SOP-HR-01: Conduct     │  ┌──────────────────────────────┐   │
+│  📖 SOP-ENG-01: Coding  ◄ │  │                        👤 You │   │
+│  🔒 SOP-SEC-01: InfoSec   │  │ Tell me about the secure      │   │
+│  🔒 SOP-SEC-02: Access    │  │ coding guidelines.            │   │
+│                            │  └──────────────────────────────┘   │
+│  ── METRICS ─────────────  │                                      │
+│  📊 Score: 45 / 100       │  ┌──────────────────────────────┐   │
+│  📚 Topics: 1 / 4         │  │ 🤖 Explainer Agent            │   │
+│  ⏱️  Status: Training      │  │ According to SOP-ENG-01,     │   │
+│                            │  │ all code must undergo peer    │   │
+│                            │  │ review before mer|            │   │
+│                            │  │                               │   │
+│                            │  │ ⏳ Agent is typing...          │   │
+│                            │  └──────────────────────────────┘   │
+│                            │                                      │
+│                            ├──────────────────────────────────────┤
+│                            │  ┌──────────────────────────┐ [SEND]│
+│                            │  │ Type your message...     │       │
+│                            │  └──────────────────────────┘       │
+└────────────────────────────┴──────────────────────────────────────┘
+```
+
+### View 3: Supervisor HITL Approval Overlay
+```text
+┌─── SIDEBAR ───────────────┬─── CHAT AREA (dimmed bg) ────────────┐
+│                            │                                      │
+│  ◆ NexusPay LMS            │     ╔══════════════════════════╗     │
+│                            │     ║  🔐 SUPERVISOR REVIEW     ║     │
+│  ╔══════════════════════╗  │     ║     REQUIRED              ║     │
+│  ║ 👤 Willy Hanafi      ║  │     ║                           ║     │
+│  ║    Software Engineer ║  │     ║  Trainee: Willy Hanafi    ║     │
+│  ╚══════════════════════╝  │     ║  Role: Software Engineer  ║     │
+│                            │     ║                           ║     │
+│  ── SYLLABUS ────────────  │     ║  ── Results ───────────── ║     │
+│  ✅ SOP-HR-01: Conduct     │     ║  Final Score: 92 / 100    ║     │
+│  ✅ SOP-ENG-01: Coding     │     ║  Topics Passed: 4 / 4     ║     │
+│  ✅ SOP-SEC-01: InfoSec    │     ║  Status: AWAITING REVIEW  ║     │
+│  ✅ SOP-SEC-02: Access     │     ║                           ║     │
+│                            │     ║  Feedback (optional):     ║     │
+│  ── METRICS ─────────────  │     ║  ┌─────────────────────┐  ║     │
+│  📊 Score: 92 / 100       │     ║  │                     │  ║     │
+│  📚 Topics: 4 / 4         │     ║  └─────────────────────┘  ║     │
+│  ⏱️  Status: REVIEW        │     ║                           ║     │
+│                            │     ║  [✅ APPROVE] [❌ REJECT]  ║     │
+│                            │     ║                           ║     │
+│                            │     ╚══════════════════════════╝     │
+│                            │                                      │
+│                            ├──────────────────────────────────────┤
+│                            │  [ Input disabled during review ]    │
+└────────────────────────────┴──────────────────────────────────────┘
+```
+
+### View 4: Certification Complete (Post-Approval)
+```text
+┌─── SIDEBAR ───────────────┬─── CHAT AREA ────────────────────────┐
+│                            │                                      │
+│  ◆ NexusPay LMS            │  ┌──────────────────────────────┐   │
+│                            │  │ 🎓 Certifier Agent            │   │
+│  ╔══════════════════════╗  │  │                               │   │
+│  ║ 👤 Willy Hanafi      ║  │  │ 🎉 Congratulations!          │   │
+│  ║    Software Engineer ║  │  │                               │   │
+│  ║    🎓 CERTIFIED      ║  │  │ You have been officially     │   │
+│  ╚══════════════════════╝  │  │ certified in NexusPay's      │   │
+│                            │  │ compliance policies.          │   │
+│  ── SYLLABUS ────────────  │  │                               │   │
+│  ✅ SOP-HR-01: Conduct     │  │ Certificate ID: NXP-2026-... │   │
+│  ✅ SOP-ENG-01: Coding     │  │ Issued: 2026-05-09           │   │
+│  ✅ SOP-SEC-01: InfoSec    │  │ Score: 92/100                │   │
+│  ✅ SOP-SEC-02: Access     │  │                               │   │
+│                            │  └──────────────────────────────┘   │
+│  ── METRICS ─────────────  │                                      │
+│  📊 Score: 92 / 100       │                                      │
+│  📚 Topics: 4 / 4         │                                      │
+│  🎓 CERTIFIED              │                                      │
+│                            ├──────────────────────────────────────┤
+│                            │  [ Session completed. ]              │
+└────────────────────────────┴──────────────────────────────────────┘
+```
+
+---
+
+## 4. API Integration Contract
+
+> [!IMPORTANT]
+> This contract has been **verified line-by-line** against the actual backend source code:
+> - [requests.py](file:///d:/ProjectAI/LangGraph%20-%20Enterprise%20AI%20Onboarding%20&%20Compliance%20Accelerator%20(Agentic%20LMS)/src/schemas/requests.py)
+> - [responses.py](file:///d:/ProjectAI/LangGraph%20-%20Enterprise%20AI%20Onboarding%20&%20Compliance%20Accelerator%20(Agentic%20LMS)/src/schemas/responses.py)
+> - [sessions.py](file:///d:/ProjectAI/LangGraph%20-%20Enterprise%20AI%20Onboarding%20&%20Compliance%20Accelerator%20(Agentic%20LMS)/src/api/sessions.py)
+> - [chat.py](file:///d:/ProjectAI/LangGraph%20-%20Enterprise%20AI%20Onboarding%20&%20Compliance%20Accelerator%20(Agentic%20LMS)/src/api/chat.py)
+> - [supervisor.py](file:///d:/ProjectAI/LangGraph%20-%20Enterprise%20AI%20Onboarding%20&%20Compliance%20Accelerator%20(Agentic%20LMS)/src/api/supervisor.py)
+
+### 4.1. Create Session
+- **Endpoint:** `POST /api/v1/sessions`
+- **Request Body:** `SessionCreateRequest`
+  ```json
+  {
+    "employee_name": "Willy Hanafi",
+    "employee_role": "Software Engineer"
+  }
+  ```
+- **Response:** `SessionCreateResponse` (200 OK)
+  ```json
+  {
+    "session_id": "a1b2c3d4-...",
+    "welcome_message": "Welcome, Willy! Based on your role...",
+    "syllabus": [
+      "SOP-HR-01: Code of Conduct",
+      "SOP-ENG-01: Secure Coding Guidelines",
+      "SOP-SEC-01: InfoSec & Data Protection",
+      "SOP-SEC-02: Access Control"
+    ]
+  }
+  ```
+- **Error:** `500` if graph invocation fails.
+
+> [!WARNING]
+> **PRD v1 Bug (Fixed):** The previous draft used `trainee_name` and `trainee_role` as field names. The actual backend Pydantic model uses `employee_name` and `employee_role`. Using the wrong field names would cause a `422 Unprocessable Entity` error.
+
+### 4.2. Get Session Status
+- **Endpoint:** `GET /api/v1/sessions/{session_id}/status`
+- **Response:** `SessionStatusResponse` (200 OK)
+  ```json
+  {
+    "session_id": "a1b2c3d4-...",
+    "employee_name": "Willy Hanafi",
+    "employee_role": "Software Engineer",
+    "current_topic": "SOP-ENG-01: Secure Coding Guidelines",
+    "completed_topics": ["SOP-HR-01: Code of Conduct"],
+    "syllabus": ["SOP-HR-01", "SOP-ENG-01", "SOP-SEC-01", "SOP-SEC-02"],
+    "quiz_score": 45,
+    "is_certified": false,
+    "requires_human_review": false,
+    "current_agent": "explainer_node"
+  }
+  ```
+- **Error:** `404` if session not found. `500` if checkpointer fails.
+
+> [!NOTE]
+> This endpoint was **missing from PRD v1**. It is critical for the Sidebar's `<SyllabusTracker />` and `<ScorePanel />` components to fetch initial state when the page loads (in case the user refreshes the browser mid-session).
+
+### 4.3. Chat (SSE Streaming)
+- **Endpoint:** `POST /api/v1/sessions/{session_id}/chat`
+- **Request Body:** `ChatRequest`
+  ```json
+  { "message": "Tell me about the secure coding guidelines" }
+  ```
+- **Response:** `Content-Type: text/event-stream`
+
+  The stream emits the following event types in order:
+
+  | Event Name | Data Shape | Frontend Action |
+  |---|---|---|
+  | `agent_start` | `{"agent": "explainer_node"}` | Show typing indicator, display agent name |
+  | `token` | `{"content": "According to..."}` | Append text to current assistant bubble |
+  | `agent_end` | `{"agent": "explainer_node"}` | Hide typing indicator |
+  | `state_update` | `{"current_topic": "...", "quiz_score": 45, "completed_topics": [...], "is_certified": false}` | Update Sidebar state |
+  | `requires_approval` | `{"message": "Awaiting supervisor...", "pending_node": ["certifier_node"]}` | Show `<SupervisorModal />`, disable input |
+  | `error` | `{"detail": "Error message"}` | Show error toast |
+  | `done` | `{}` | Re-enable input, finalize message |
+
+> [!IMPORTANT]
+> **Edge Case — Non-Streaming JSON Responses:**
+> If the session is already certified or already awaiting approval, the backend does NOT return an SSE stream. Instead, it returns a regular JSON `ChatResponse`:
+> ```json
+> { "session_id": "...", "agent": "system", "message": "Already certified.", "requires_approval": false }
+> ```
+> The frontend must check the `Content-Type` header of the response:
+> - `text/event-stream` → Parse as SSE stream
+> - `application/json` → Parse as JSON and display as system message
+
+### 4.4. Chat (Synchronous Fallback)
+- **Endpoint:** `POST /api/v1/sessions/{session_id}/chat/sync`
+- **Request Body:** `ChatRequest` (same as 4.3)
+- **Response:** `ChatResponse` (200 OK)
+  ```json
+  {
+    "session_id": "a1b2c3d4-...",
+    "agent": "explainer_node",
+    "message": "According to SOP-ENG-01, all code must undergo...",
+    "requires_approval": false
+  }
+  ```
+
+> [!NOTE]
+> This endpoint was **missing from PRD v1**. It exists in the backend as a non-streaming alternative, useful for debugging and automated tests. The frontend can use it as a fallback if SSE parsing fails.
+
+### 4.5. Supervisor Approve
+- **Endpoint:** `POST /api/v1/sessions/{session_id}/approve`
+- **Request Body:** `SupervisorActionRequest` (OPTIONAL body — can be empty)
+  ```json
+  { "feedback": "Excellent performance. Approved." }
+  ```
+- **Response:** `SupervisorActionResponse` (200 OK)
+  ```json
+  {
+    "session_id": "a1b2c3d4-...",
+    "action": "approved",
+    "message": "🎉 Congratulations! You are now certified...",
+    "is_certified": true
+  }
+  ```
+- **Errors:** `404` session not found. `400` session not waiting for approval.
+
+> [!WARNING]
+> **PRD v1 Bug (Fixed):** The previous draft showed `{ "reason": "..." }` as the request field. The actual Pydantic model uses `feedback` (not `reason`), and it's an `Optional` field — the body can be omitted entirely.
+
+### 4.6. Supervisor Reject
+- **Endpoint:** `POST /api/v1/sessions/{session_id}/reject`
+- **Request Body:** `SupervisorActionRequest` (OPTIONAL body)
+  ```json
+  { "feedback": "Needs to review Data Privacy section again." }
+  ```
+- **Response:** `SupervisorActionResponse` (200 OK)
+  ```json
+  {
+    "session_id": "a1b2c3d4-...",
+    "action": "rejected",
+    "message": "Certification rejected. Trainee will receive additional tutoring...",
+    "is_certified": false
+  }
+  ```
+
+---
+
+## 5. Gap Analysis vs. PRD v1
+
+The following table summarizes all issues found in the original PRD v1 and corrections applied in v2:
+
+| # | Issue in PRD v1 | Severity | Fix in v2 |
+|---|---|---|---|
+| 1 | **Wrong field names** in Session Create: used `trainee_name`/`trainee_role` | 🔴 Critical | Changed to `employee_name`/`employee_role` (matches Pydantic schema) |
+| 2 | **Wrong field names** in Supervisor: used `reason` | 🔴 Critical | Changed to `feedback` (matches `SupervisorActionRequest` schema) |
+| 3 | **Missing `GET /status` endpoint** | 🟡 Major | Added Section 4.2 with full response schema |
+| 4 | **Missing `POST /chat/sync` fallback** | 🟡 Major | Added Section 4.4 |
+| 5 | **Missing SSE events** `agent_start`, `agent_end` | 🟡 Major | Added to SSE event table in Section 4.3 |
+| 6 | **Session Create response** was incomplete (missing `syllabus[]` and `welcome_message`) | 🟡 Major | Fixed to match `SessionCreateResponse` Pydantic model |
+| 7 | **SSE `token` format** was wrong: showed bare string, actual is `{"content": "..."}` | 🟡 Major | Fixed to match actual JSON wrapper in `chat.py` line 108 |
+| 8 | **SSE `state_update` format** was wrong: showed `{"score": 20, "completed_sops": [...]}` | 🟡 Major | Fixed to `{"current_topic", "quiz_score", "completed_topics", "is_certified"}` per `chat.py` line 119-124 |
+| 9 | **Missing edge case** for non-SSE responses from chat endpoint | 🟡 Major | Added Content-Type detection guidance |
+| 10 | **No View 4 wireframe** (Post-Certification state) | 🟢 Minor | Added View 4: Certification Complete |
+| 11 | **No error handling specification** in UI | 🟢 Minor | Added FR-04 requirement and `error` event handling |
+| 12 | **Role input** was free-text (risks typos breaking Planner) | 🟢 Minor | Changed to dropdown select with predefined roles |
+| 13 | **CORS** not mentioned — required for localhost cross-origin | 🟢 Minor | CORS already enabled in `server.py` line 106-112. No frontend action needed. |
+
+---
+
+## 6. Non-Functional Requirements
+
+| Category | Requirement | Target |
+|---|---|---|
+| **Performance** | Time from user message to first visible token | < 2 seconds |
+| **Accessibility** | Keyboard navigation for all interactive elements | Tab-navigable |
+| **Browser Support** | Chrome, Firefox, Edge (latest 2 versions) | Functional |
+| **Bundle Size** | Initial JS bundle (gzipped) | < 200 KB |
+| **Design** | Dark mode, glassmorphism, micro-animations | Premium aesthetic |
+
+---
+
+## 7. Technology Decisions
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| **Framework** | React 19 via Vite | Fastest dev server. Pure SPA (no SSR needed). No "Double Backend" conflict with FastAPI. |
+| **Styling** | CSS Modules (`.module.css`) | Scoped styles per component. No global class collision. No Tailwind dependency. |
+| **Icons** | Lucide React | Lightweight, tree-shakeable, modern icon set. |
+| **HTTP Client** | Native `fetch()` API | No axios dependency needed. `ReadableStream` for SSE parsing. |
+| **State** | React `useState` + Context | Simple enough for single-page dashboard. No Redux overhead. |
+| **Fonts** | Google Fonts: Inter | Clean, professional, widely used in modern SaaS dashboards. |

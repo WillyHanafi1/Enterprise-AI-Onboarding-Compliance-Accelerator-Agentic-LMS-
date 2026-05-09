@@ -1,0 +1,25 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+    restart: unless-stopped
+
+  # Phase 4+: Uncomment when ready for production state persistence
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: lms_user
+      POSTGRES_PASSWORD: lms_password
+      POSTGRES_DB: lms_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

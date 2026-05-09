@@ -1,0 +1,198 @@
+.sidebar {
+  width: var(--sidebar-width);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px;
+  background: var(--bg-glass-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-right: var(--glass-border);
+  overflow-y: auto;
+  animation: slideInLeft 0.4s ease forwards;
+}
+
+/* === Brand === */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.brandIcon {
+  color: var(--accent-primary);
+}
+
+.brandName {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  background: linear-gradient(135deg, var(--accent-primary), #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* === Profile Card === */
+.profileCard {
+  padding: 16px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 24px;
+}
+
+.profileName {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profileRole {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-top: 4px;
+  margin-left: 24px;
+}
+
+.certifiedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  margin-left: 24px;
+  padding: 3px 10px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--accent-success);
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 20px;
+}
+
+/* === Section Headers === */
+.sectionTitle {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+/* === Syllabus Tracker === */
+.syllabusSection {
+  margin-bottom: 24px;
+}
+
+.topicList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.topicItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: background var(--transition-fast);
+}
+
+.topicItem:hover {
+  background: var(--bg-surface-hover);
+}
+
+.topicCompleted {
+  color: var(--accent-success);
+}
+
+.topicActive {
+  color: var(--text-accent);
+  background: rgba(99, 102, 241, 0.08);
+  font-weight: 500;
+}
+
+.topicLocked {
+  color: var(--text-muted);
+}
+
+.topicIcon {
+  flex-shrink: 0;
+  width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topicName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* === Score Panel === */
+.metricsSection {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.metricRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.metricIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.metricValue {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* === Score Bar === */
+.scoreBarContainer {
+  margin-top: 12px;
+}
+
+.scoreBarTrack {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-surface);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.scoreBarFill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent-primary), #a78bfa);
+  transition: width var(--transition-slow);
+}
+
+.scoreLabel {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  margin-top: 6px;
+}

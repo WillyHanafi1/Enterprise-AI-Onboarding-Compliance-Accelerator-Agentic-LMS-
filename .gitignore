@@ -1,0 +1,82 @@
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+wheels/
+*.egg-info/
+*.egg
+
+# ========================
+# Virtual Environments
+# ========================
+.venv/
+venv/
+ENV/
+
+# ========================
+# Environment & Secrets (CRITICAL)
+# ========================
+.env
+.env.local
+.env.production
+# .env.example is committed intentionally
+
+# ========================
+# IDE & Editor
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ========================
+# Testing & Linting Cache
+# ========================
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ========================
+# Data & Database (large files)
+# ========================
+data/
+chroma_db/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ========================
+# Frontend
+# ========================
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# ========================
+# Docker
+# ========================
+docker-compose.override.yml
+
+# ========================
+# Misc
+# ========================
+*.log
+*.bak
+*.tmp
+temp/
