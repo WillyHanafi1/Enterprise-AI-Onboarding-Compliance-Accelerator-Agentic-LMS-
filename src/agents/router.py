@@ -8,6 +8,11 @@ Classifies user messages into one of three intents:
 
 Uses LLM-based classification with structured output for accuracy
 and robustness against varied natural language inputs.
+
+BUG-FIX: Added assessor context guard to prevent quiz answers from
+being misclassified as "learn" intent. When the last active agent was
+the assessor and the current topic has not yet been graded, the router
+short-circuits LLM classification and returns "quiz" directly.
 """
 
 import logging
@@ -49,6 +54,47 @@ Classify the LAST user message. If unsure, default to "learn".
 """
 
 
+def _is_awaiting_quiz_answer(state: dict) -> bool:
+    """
+    Returns True if the conversation is mid-assessment and the current
+    topic has not yet been graded.
+
+    This guard prevents detailed quiz answers from being misclassified
+    as "learn" intent by the LLM. The check is purely state-based and
+    requires no LLM call.
+
+    A message is treated as a quiz answer when ALL of the following hold:
+        1. The last active agent was the assessor (it asked a question).
+        2. The current topic does not yet appear in assessment_history
+           (meaning the assessor has not graded this topic yet).
+
+    Args:
+        state: The current OnboardingState dictionary.
+
+    Returns:
+        True if the user is answering a pending quiz question.
+    """
+    # Condition 1: assessor was the last agent to act.
+    if state.get("current_agent") != "assessor_node":
+        return False
+
+    # Condition 2: the current topic has not been graded yet.
+    current_topic = state.get("current_topic", "")
+    assessment_history = state.get("assessment_history", [])
+    current_topic_graded = any(
+        record.get("topic") == current_topic for record in assessment_history
+    )
+
+    if not current_topic_graded:
+        logger.info(
+            "Assessor context guard: topic '%s' ungraded — routing answer to assessor.",
+            current_topic,
+        )
+        return True
+
+    return False
+
+
 def route_intent(state: dict) -> str:
     """
     Classifies user intent via LLM structured output.
@@ -56,12 +102,21 @@ def route_intent(state: dict) -> str:
     This function is used as a conditional edge function in LangGraph.
     It reads the last user message from state and returns a routing key.
 
+    Short-circuits to "quiz" without an LLM call when the conversation
+    is mid-assessment (see _is_awaiting_quiz_answer).
+
     Args:
         state: The current OnboardingState dictionary.
 
     Returns:
         One of: "learn", "quiz", or "status".
     """
+    # --- Assessor context guard (Bug Fix) ---
+    # Must run before LLM classification so that detailed quiz answers
+    # (which look like "learn" messages) reach the assessor for grading.
+    if _is_awaiting_quiz_answer(state):
+        return "quiz"
+
     messages = state.get("messages", [])
 
     # Find the last human message

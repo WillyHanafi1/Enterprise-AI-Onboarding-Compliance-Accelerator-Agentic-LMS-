@@ -140,11 +140,19 @@ def advance_topic(state: OnboardingState) -> dict:
     Finds the next topic that hasn't been completed yet and
     updates current_topic in the state.
 
+    BUG-FIX (State Leakage): quiz_score is explicitly reset to None here.
+    Without this, the high score from the just-completed topic remains in
+    state. On the next topic, if the user's answer is misrouted to the
+    explainer (or the assessor hasn't graded yet), grade_check would read
+    the stale passing score, see the topic as already graded (false), and
+    route to END without recording completion. Resetting here guarantees
+    grade_check starts from a clean slate for every new topic.
+
     Args:
         state: The current onboarding state.
 
     Returns:
-        dict: State updates with the new current_topic.
+        dict: State updates with the new current_topic and a cleared quiz_score.
     """
     syllabus = state.get("syllabus", [])
     completed = state.get("completed_topics", [])
@@ -164,6 +172,8 @@ def advance_topic(state: OnboardingState) -> dict:
     return {
         "current_topic": next_topic or state.get("current_topic", ""),
         "current_agent": "advance_topic",
+        # Reset so grade_check never reads a score from a previous topic.
+        "quiz_score": None,
     }
 
 

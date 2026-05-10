@@ -85,7 +85,15 @@ async def create_session(
     welcome_message = ""
     for msg in reversed(result.get("messages", [])):
         if hasattr(msg, "content") and not isinstance(msg, HumanMessage):
-            welcome_message = msg.content
+            # Handle both string and list content (Gemini multi-modal blocks)
+            if isinstance(msg.content, list):
+                welcome_message = "".join([
+                    block.get("text", "")
+                    for block in msg.content
+                    if isinstance(block, dict) and block.get("type") == "text"
+                ])
+            else:
+                welcome_message = msg.content
             break
 
     return SessionCreateResponse(

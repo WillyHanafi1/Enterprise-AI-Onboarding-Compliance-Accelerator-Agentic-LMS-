@@ -107,7 +107,7 @@ async def run_evaluation():
     # BUG-1 FIX: Build a standalone graph with SQLite (no Postgres required)
     graph, db_conn = _build_eval_graph()
     judge_llm = ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash",
+        model="gemini-3-flash-preview",
         api_key=settings.GEMINI_API_KEY,
     )
 
@@ -215,10 +215,10 @@ async def run_evaluation():
             total_faithfulness += f_score
             total_relevancy += r_score
             successful_evals += 1
-            print(f"  ✓ Faithfulness={f_score}, Relevancy={r_score}", flush=True)
+            print(f"  [OK] Faithfulness={f_score}, Relevancy={r_score}", flush=True)
 
         except Exception as e:
-            print(f"  ✗ Error: {e}", flush=True)
+            print(f"  [FAIL] Error: {e}", flush=True)
             results.append({
                 "id": i,
                 "question": question,

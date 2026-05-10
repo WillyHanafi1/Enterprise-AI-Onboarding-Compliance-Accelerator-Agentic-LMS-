@@ -319,7 +319,15 @@ async def chat_sync(
     ai_message = ""
     for msg in reversed(result.get("messages", [])):
         if isinstance(msg, AIMessage) and msg.content:
-            ai_message = msg.content
+            # Handle both string and list content (Gemini multi-modal blocks)
+            if isinstance(msg.content, list):
+                ai_message = "".join([
+                    block.get("text", "")
+                    for block in msg.content
+                    if isinstance(block, dict) and block.get("type") == "text"
+                ])
+            else:
+                ai_message = msg.content
             break
 
     # Detect which agent ran from the state

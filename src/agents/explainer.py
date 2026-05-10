@@ -27,6 +27,12 @@ def get_explainer_agent():
 Your goal is to teach the user about the topic: '{topic}'.
 The user's role is: '{role}'.
 
+**CRITICAL INSTRUCTION (NO GRADING):**
+- You are strictly prohibited from evaluating, grading, or confirming the correctness of a user's answer to a quiz or assessment.
+- If a user provides an answer to a question you previously posed (or they think is a quiz answer), DO NOT grade it. 
+- You MUST respond politely stating that the **Assessor Agent** will handle the evaluation once you have finished the explanation phase.
+- Your focus is exclusively on clarifying concepts and answering "How" or "Why" questions about AI.
+
 Instructions:
 1. FIRST, determine if the user's question is related to company onboarding, policies, work procedures, or the current topic.
 2. If the question IS relevant: Use the `retrieve_internal_policies` tool to search for ground-truth information, then explain it clearly.
