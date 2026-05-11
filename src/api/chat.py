@@ -88,19 +88,23 @@ async def _stream_graph_response(
     try:
         final_state = None
         # Initialize Langfuse Callback
-        langfuse_handler = get_langfuse_callback(
-            trace_name="chat-stream",
-            session_id=session_id,
-            user_id=user_id
-        )
+        langfuse_handler = get_langfuse_callback()
         callbacks = [langfuse_handler] if langfuse_handler else []
+
+        # Add tracing metadata to config for Langfuse
+        config["metadata"] = {
+            "langfuse_trace_name": "chat-stream",
+            "langfuse_session_id": session_id,
+            "langfuse_user_id": user_id,
+            "langfuse_tags": [settings.ENVIRONMENT],
+            "version": settings.VERSION
+        }
 
         # Using stream_mode=["messages", "values"] allows us to see internal messages from sub-agents
         async for event_type, event_data in graph.astream(
             input_dict, 
-            config, 
-            stream_mode=["messages", "values"],
-            config={"callbacks": callbacks}
+            {**config, "callbacks": callbacks},
+            stream_mode=["messages", "values"]
         ):
             if event_type == "messages":
                 chunk, metadata = event_data
@@ -116,7 +120,7 @@ async def _stream_graph_response(
                 if detected_agent is None and node_name != "unknown":
                     detected_agent = node_name
                     # Get trace_id from langfuse_handler if available
-                    trace_id = getattr(langfuse_handler, "trace_id", None)
+                    trace_id = getattr(langfuse_handler, "last_trace_id", None)
                     yield {
                         "event": "agent_start",
                         "data": json.dumps({
@@ -330,12 +334,17 @@ async def chat_sync(
     try:
         # Initialize Langfuse Callback
         user_id = getattr(request, "user_id", None)
-        langfuse_handler = get_langfuse_callback(
-            trace_name="chat-sync",
-            session_id=session_id,
-            user_id=user_id
-        )
+        langfuse_handler = get_langfuse_callback()
         callbacks = [langfuse_handler] if langfuse_handler else []
+
+        # Add tracing metadata to config for Langfuse
+        config["metadata"] = {
+            "langfuse_trace_name": "chat-sync",
+            "langfuse_session_id": session_id,
+            "langfuse_user_id": user_id,
+            "langfuse_tags": [settings.ENVIRONMENT],
+            "version": settings.VERSION
+        }
 
         # BUG-2 FIX: Use ainvoke for async checkpointer
         result = await graph.ainvoke(

@@ -6,7 +6,7 @@ import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import SupervisorModal from './components/SupervisorModal';
 
-import { createSession, sendChatMessage, approveSession, rejectSession } from './api/client';
+import { createSession, sendChatMessage, approveSession, rejectSession, submitFeedback } from './api/client';
 import { parseSSEStream } from './api/sseParser';
 
 import './App.css';

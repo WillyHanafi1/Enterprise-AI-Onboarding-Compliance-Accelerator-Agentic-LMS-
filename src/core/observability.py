@@ -14,9 +14,11 @@ def mask_pii(text: str) -> str:
     # Mask emails
     return re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '[EMAIL_REDACTED]', text)
 
-def get_langfuse_callback(trace_name: str = "onboarding-chat", session_id: str = None, user_id: str = None) -> CallbackHandler:
+def get_langfuse_callback() -> CallbackHandler:
     """
-    Initializes and returns a Langfuse CallbackHandler with professional enhancements.
+    Initializes and returns a Langfuse CallbackHandler.
+    Configuration (host, keys) is automatically loaded from environment variables.
+    Tracing metadata (session_id, etc.) should be passed via LangChain config['metadata'].
     """
     settings = get_settings()
     
@@ -26,14 +28,6 @@ def get_langfuse_callback(trace_name: str = "onboarding-chat", session_id: str =
 
     handler = CallbackHandler(
         public_key=settings.LANGFUSE_PUBLIC_KEY,
-        secret_key=settings.LANGFUSE_SECRET_KEY,
-        host=settings.LANGFUSE_HOST,
-        trace_name=trace_name,
-        session_id=session_id,
-        user_id=user_id,
-        version=settings.VERSION,
-        tags=[settings.ENVIRONMENT],
-        masking=mask_pii  # Professional best practice: PII Masking
     )
     
     return handler

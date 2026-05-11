@@ -52,7 +52,5 @@ def get_langfuse_callback() -> CallbackHandler:
     """
     settings = get_settings()
     return CallbackHandler(
-        public_key=settings.LANGFUSE_PUBLIC_KEY,
-        secret_key=settings.LANGFUSE_SECRET_KEY,
-        host=settings.LANGFUSE_HOST,
+        public_key=settings.LANGFUSE_PUBLIC_KEY
     )

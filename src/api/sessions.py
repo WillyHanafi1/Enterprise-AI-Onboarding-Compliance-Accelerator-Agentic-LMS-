@@ -74,12 +74,17 @@ async def create_session(
 
     try:
         # Initialize Langfuse Callback
-        langfuse_handler = get_langfuse_callback(
-            trace_name="session-creation",
-            session_id=session_id,
-            user_id=request.user_id
-        )
+        langfuse_handler = get_langfuse_callback()
         callbacks = [langfuse_handler] if langfuse_handler else []
+
+        # Add tracing metadata to config for Langfuse (standard LangChain metadata keys)
+        config["metadata"] = {
+            "langfuse_trace_name": "session-creation",
+            "langfuse_session_id": session_id,
+            "langfuse_user_id": request.user_id,
+            "langfuse_tags": [settings.ENVIRONMENT],
+            "version": settings.VERSION
+        }
 
         # BUG-2 FIX: Use ainvoke for async checkpointer compatibility
         result = await graph.ainvoke(

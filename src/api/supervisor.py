@@ -17,6 +17,7 @@ from langchain_core.messages import AIMessage
 
 from src.api.dependencies import get_graph_instance
 from src.core.config import get_settings
+from src.core.observability import get_langfuse_callback
 from src.schemas.requests import SupervisorActionRequest
 from src.schemas.responses import SupervisorActionResponse
 
@@ -106,7 +107,19 @@ async def approve_session(
 
     # Resume the graph → certifier_node runs
     try:
-        result = await graph.ainvoke(None, config)
+        # Initialize Langfuse Callback
+        langfuse_handler = get_langfuse_callback()
+        callbacks = [langfuse_handler] if langfuse_handler else []
+
+        # Add tracing metadata to config for Langfuse
+        config["metadata"] = {
+            "langfuse_trace_name": "supervisor-approval",
+            "langfuse_session_id": session_id,
+            "langfuse_tags": [settings.ENVIRONMENT],
+            "version": settings.VERSION
+        }
+
+        result = await graph.ainvoke(None, {**config, "callbacks": callbacks})
     except Exception as e:
         logger.exception("Failed to resume graph for session '%s'", session_id)
         raise HTTPException(

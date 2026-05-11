@@ -45,6 +45,7 @@ export default function ChatWindow({
   isCertified,
   requiresApproval,
   onSendMessage,
+  onFeedback,
 }) {
   const [inputValue, setInputValue] = useState('');
   const listRef = useRef(null);
