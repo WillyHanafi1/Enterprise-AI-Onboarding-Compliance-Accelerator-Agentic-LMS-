@@ -131,3 +131,26 @@ export async function rejectSession(sessionId, feedback) {
 
   return res.json();
 }
+
+/**
+ * Submit user feedback for a trace.
+ * POST /api/v1/sessions/{sessionId}/feedback
+ *
+ * @param {string} sessionId
+ * @param {{trace_id?: string, score: number, comment?: string, name?: string}} feedback
+ * @returns {Promise<object>}
+ */
+export async function submitFeedback(sessionId, feedback) {
+  const res = await fetch(`${API_BASE}/sessions/${sessionId}/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(feedback),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Feedback submission failed' }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+
+  return res.json();
+}

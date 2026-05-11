@@ -150,6 +150,25 @@ graph TD
     CertifierNode --> __end__
 ```
 
+---
+
+## 5. 4C Onboarding Framework
+The system implements the **4C Framework** to ensure holistic employee integration:
+
+1.  **Compliance:** Basic legal and administrative requirements (AML/KYC, GDPR, Leave Policy).
+2.  **Clarification:** Role-specific KPIs, target settings, and technical expectations.
+3.  **Culture:** Company vision, core values (SPEED), and informal norms.
+4.  **Connection:** (Upcoming) Social integration and buddy system recommendations.
+
+---
+
+## 6. Supported Employee Roles
+The Curriculum Planner uses specialized role templates to filter and prioritize SOPs:
+- **Software Engineer:** Focuses on secure coding, SDLC, and tech stack.
+- **Compliance Officer:** Focuses on AML, KYC, and regulatory auditing.
+- **Financial Analyst:** Focuses on expense reimbursement and financial forecasting.
+- **IT Administrator:** Focuses on asset management and access control.
+- **General Staff:** Focuses on code of conduct and general office procedures.
 ### 4.1 Key Design Decisions
 
 | Decision | Rationale |

@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { startActiveObservation } from '@langfuse/tracing';
 
 import SetupScreen from './components/SetupScreen';
 import Sidebar from './components/Sidebar';
@@ -46,10 +47,10 @@ export default function App() {
   const [error, setError] = useState('');
 
   // ─── Helper: add a message to chat ───
-  const addMessage = useCallback((role, content, agent = null) => {
+  const addMessage = useCallback((role, content, agent = null, traceId = null) => {
     setMessages((prev) => [
       ...prev,
-      { role, content, agent, timestamp: new Date() },
+      { role, content, agent, traceId, timestamp: new Date() },
     ]);
   }, []);
 
@@ -99,76 +100,84 @@ export default function App() {
     setError('');
 
     try {
-      const response = await sendChatMessage(session.session_id, text);
+      await startActiveObservation('send-message', async (span) => {
+        span.update({ input: { text } });
+        
+        const response = await sendChatMessage(session.session_id, text);
 
-      // Edge case: backend returns JSON instead of SSE
-      // (when already certified or awaiting approval)
-      const contentType = response.headers.get('Content-Type') || '';
+        // Edge case: backend returns JSON instead of SSE
+        // (when already certified or awaiting approval)
+        const contentType = response.headers.get('Content-Type') || '';
 
-      if (contentType.includes('application/json')) {
-        const data = await response.json();
-        addMessage('system', data.message, data.agent);
-        if (data.requires_approval) {
-          setAgentState('requires_approval');
-          setRequiresApproval(true);
-        } else {
-          setAgentState('idle');
+        if (contentType.includes('application/json')) {
+          const data = await response.json();
+          addMessage('system', data.message, data.agent);
+          if (data.requires_approval) {
+            setAgentState('requires_approval');
+            setRequiresApproval(true);
+          } else {
+            setAgentState('idle');
+          }
+          span.update({ output: data });
+          return;
         }
-        return;
-      }
 
-      // Normal SSE streaming
-      let currentAgentName = null;
+        // Normal SSE streaming
+        let currentAgentName = null;
 
-      await parseSSEStream(response, {
-        agent_start: (data) => {
-          currentAgentName = data.agent;
-          setActiveAgent(data.agent);
-          setAgentState('typing');
-          // Create an empty assistant bubble for streaming into
-          addMessage('assistant', '', data.agent);
-        },
+        await parseSSEStream(response, {
+          agent_start: (data) => {
+            currentAgentName = data.agent;
+            setActiveAgent(data.agent);
+            setAgentState('typing');
+            // Create an empty assistant bubble for streaming into
+            // Include trace_id for feedback loop
+            addMessage('assistant', '', data.agent, data.trace_id);
+          },
 
-        token: (data) => {
-          appendToLastAssistant(data.content || '');
-        },
+          token: (data) => {
+            appendToLastAssistant(data.content || '');
+          },
 
-        agent_end: () => {
-          setAgentState('idle');
-        },
-
-        state_update: (data) => {
-          if (data.current_topic !== undefined) setCurrentTopic(data.current_topic);
-          if (data.quiz_score !== undefined) setQuizScore(data.quiz_score);
-          if (data.completed_topics !== undefined) setCompletedTopics(data.completed_topics);
-          if (data.is_certified) {
-            setIsCertified(true);
+          agent_end: () => {
             setAgentState('idle');
-          }
-        },
+          },
 
-        requires_approval: (data) => {
-          approvalFlagRef.current = true;
-          setAgentState('requires_approval');
-          setRequiresApproval(true);
-          if (data.message) {
-            addMessage('system', data.message);
-          }
-        },
+          state_update: (data) => {
+            if (data.current_topic !== undefined) setCurrentTopic(data.current_topic);
+            if (data.quiz_score !== undefined) setQuizScore(data.quiz_score);
+            if (data.completed_topics !== undefined) setCompletedTopics(data.completed_topics);
+            if (data.is_certified) {
+              setIsCertified(true);
+              setAgentState('idle');
+            }
+          },
 
-        error: (data) => {
-          setError(data.detail || 'An error occurred');
-          setAgentState('idle');
-        },
+          requires_approval: (data) => {
+            approvalFlagRef.current = true;
+            setAgentState('requires_approval');
+            setRequiresApproval(true);
+            if (data.message) {
+              addMessage('system', data.message);
+            }
+          },
 
-        done: () => {
-          // BUG-9 FIX: Use ref instead of stale closure
-          if (!approvalFlagRef.current) {
+          error: (data) => {
+            setError(data.detail || 'An error occurred');
             setAgentState('idle');
-          }
-          setActiveAgent(null);
-          approvalFlagRef.current = false;
-        },
+            span.update({ level: 'ERROR', statusMessage: data.detail });
+          },
+
+          done: () => {
+            // BUG-9 FIX: Use ref instead of stale closure
+            if (!approvalFlagRef.current) {
+              setAgentState('idle');
+            }
+            setActiveAgent(null);
+            approvalFlagRef.current = false;
+            span.update({ output: 'stream finished' });
+          },
+        });
       });
     } catch (err) {
       setError(err.message || 'Failed to send message');
@@ -181,11 +190,15 @@ export default function App() {
   // ═══════════════════════════════════════
   async function handleApprove(feedback) {
     try {
-      const data = await approveSession(session.session_id, feedback);
-      setRequiresApproval(false);
-      setIsCertified(data.is_certified);
-      addMessage('assistant', data.message, 'certifier_node');
-      setAgentState('idle');
+      await startActiveObservation('supervisor-approve', async (span) => {
+        span.update({ input: { feedback } });
+        const data = await approveSession(session.session_id, feedback);
+        setRequiresApproval(false);
+        setIsCertified(data.is_certified);
+        addMessage('assistant', data.message, 'certifier_node');
+        setAgentState('idle');
+        span.update({ output: data });
+      });
     } catch (err) {
       setError(err.message || 'Approval failed');
     }
@@ -196,13 +209,33 @@ export default function App() {
   // ═══════════════════════════════════════
   async function handleReject(feedback) {
     try {
-      const data = await rejectSession(session.session_id, feedback);
-      setRequiresApproval(false);
-      addMessage('system', data.message);
-      setAgentState('idle');
-      setQuizScore(0);
+      await startActiveObservation('supervisor-reject', async (span) => {
+        span.update({ input: { feedback } });
+        const data = await rejectSession(session.session_id, feedback);
+        setRequiresApproval(false);
+        addMessage('system', data.message);
+        setAgentState('idle');
+        setQuizScore(0);
+        span.update({ output: data });
+      });
     } catch (err) {
       setError(err.message || 'Rejection failed');
+    }
+  }
+
+  // ═══════════════════════════════════════
+  //  5. Feedback Loop
+  // ═══════════════════════════════════════
+  async function handleFeedback(traceId, score, comment = '') {
+    if (!session || !traceId) return;
+    try {
+      await submitFeedback(session.session_id, {
+        trace_id: traceId,
+        score,
+        comment,
+      });
+    } catch (err) {
+      console.error('Feedback failed:', err);
     }
   }
 
@@ -235,6 +268,7 @@ export default function App() {
         isCertified={isCertified}
         requiresApproval={requiresApproval}
         onSendMessage={handleSendMessage}
+        onFeedback={handleFeedback}
       />
 
       {/* HITL Supervisor Modal (View 3) */}

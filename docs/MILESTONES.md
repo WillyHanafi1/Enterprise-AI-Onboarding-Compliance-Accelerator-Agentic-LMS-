@@ -3,8 +3,8 @@
 
 | Field | Detail |
 |---|---|
-| **Document Status** | Draft v2 |
-| **Last Updated** | May 2026 |
+| **Document Status** | Final v1 |
+| **Last Updated** | May 10, 2026 |
 | **Related Docs** | [PRD.md](./PRD.md) · [ARCHITECTURE.md](./ARCHITECTURE.md) · [TECH_STACK.md](./TECH_STACK.md) |
 
 This document breaks the project into incremental phases. Each phase produces a working, testable deliverable before moving to the next. Tasks include acceptance criteria (Definition of Done) to prevent ambiguity.
@@ -69,11 +69,11 @@ This document breaks the project into incremental phases. Each phase produces a 
 
 | # | Task | Definition of Done |
 |---|---|---|
-| 4.1 | Implement Router (conditional edge) for intent classification. | Router correctly classifies "teach me about X" → explainer, "quiz me" → assessor, "what's my progress" → status. |
-| 4.2 | Assemble full graph in `src/graph/workflow.py` (Planner → Router → Explainer/Assessor → Grade → HITL → Certifier). | Graph compiles without errors. `graph.get_graph().draw_mermaid()` produces valid diagram. |
-| 4.3 | Implement conditional edge: Assessor fail → Explainer remediation loop. | When score < 80, graph routes to Explainer. When score ≥ 80, graph routes to HITL gate. |
-| 4.4 | Integrate **Checkpointer** (SQLite for dev). | Conversation state persists across server restarts. Resuming a `thread_id` continues from last checkpoint. |
-| 4.5 | Test full graph end-to-end with a simulated conversation. | A complete flow (start → learn → quiz → pass → certify) executes without errors. |
+| [x] 4.1 | Implement Router (conditional edge) for intent classification. | Router correctly classifies "teach me about X" → explainer, "quiz me" → assessor, "what's my progress" → status. |
+| [x] 4.2 | Assemble full graph in `src/graph/workflow.py` (Planner → Router → Explainer/Assessor → Grade → HITL → Certifier). | Graph compiles without errors. `graph.get_graph().draw_mermaid()` produces valid diagram. |
+| [x] 4.3 | Implement conditional edge: Assessor fail → Explainer remediation loop. | When score < 80, graph routes to Explainer. When score ≥ 80, graph routes to HITL gate. |
+| [x] 4.4 | Integrate **Checkpointer** (SQLite for dev). | Conversation state persists across server restarts. Resuming a `thread_id` continues from last checkpoint. |
+| [x] 4.5 | Test full graph end-to-end with a simulated conversation. | A complete flow (start → learn → quiz → pass → certify) executes without errors. |
 
 **Phase 4 Deliverable:** A fully connected LangGraph workflow with persistent state and conditional routing.
 
@@ -85,12 +85,12 @@ This document breaks the project into incremental phases. Each phase produces a 
 
 | # | Task | Definition of Done |
 |---|---|---|
-| 5.1 | Implement `interrupt_before` on the Certifier node. | Graph pauses after Assessor passes. State is saved. No further nodes execute until resumed. |
-| 5.2 | Create chat endpoint (`POST /api/v1/sessions/{id}/chat`) with SSE streaming. | Client receives streamed tokens in real-time. Agent status updates visible ("Searching documents...", "Evaluating answer..."). |
-| 5.3 | Create session management endpoints (`POST /api/v1/sessions`, `GET /api/v1/sessions/{id}/status`). | Sessions can be created, queried for progress, and resumed. |
-| 5.4 | Create supervisor endpoints (`POST /api/v1/sessions/{id}/approve`, `POST /api/v1/sessions/{id}/reject`). | Approving resumes the graph and issues certification. Rejecting routes back to Explainer. |
-| 5.5 | Implement error handling for all failure scenarios (see Architecture doc). | API rate limit → 429 backoff. Empty RAG → graceful message. Malformed LLM output → retry. |
-| 5.6 | Integration test: full API flow via `httpx` or `pytest` async client. | Complete onboarding flow works end-to-end through the API. |
+| [x] 5.1 | Implement `interrupt_before` on the Certifier node. | Graph pauses after Assessor passes. State is saved. No further nodes execute until resumed. |
+| [x] 5.2 | Create chat endpoint (`POST /api/v1/sessions/{id}/chat`) with SSE streaming. | Client receives streamed tokens in real-time. Agent status updates visible ("Searching documents...", "Evaluating answer..."). |
+| [x] 5.3 | Create session management endpoints (`POST /api/v1/sessions`, `GET /api/v1/sessions/{id}/status`). | Sessions can be created, queried for progress, and resumed. |
+| [x] 5.4 | Create supervisor endpoints (`POST /api/v1/sessions/{id}/approve`, `POST /api/v1/sessions/{id}/reject`). | Approving resumes the graph and issues certification. Rejecting routes back to Explainer. |
+| [x] 5.5 | Implement error handling for all failure scenarios (see Architecture doc). | API rate limit → 429 backoff. Empty RAG → graceful message. Malformed LLM output → retry. |
+| [x] 5.6 | Integration test: full API flow via `httpx` or `pytest` async client. | Complete onboarding flow works end-to-end through the API. |
 
 **Phase 5 Deliverable:** Production-ready API with streaming, HITL, and error handling.
 
@@ -102,13 +102,27 @@ This document breaks the project into incremental phases. Each phase produces a 
 
 | # | Task | Definition of Done |
 |---|---|---|
-| 6.1 | Build evaluation dataset (20+ question-answer pairs with expected scores). | Gold-standard test set covers all SOP topics. |
-| 6.2 | Run **Faithfulness** evaluation using LLM-as-a-judge. | Faithfulness score ≥ 95% across the evaluation dataset. |
-| 6.3 | Run **Answer Relevancy** evaluation. | Relevancy score ≥ 90% across the evaluation dataset. |
-| 6.4 | Finalize `Dockerfile` and `docker-compose.yml` (FastAPI + PostgreSQL + ChromaDB). | `docker compose up` starts all services. API is accessible and functional. |
-| 6.5 | Run `Ruff` linter and `mypy` type checker. Fix all issues. | Zero lint errors. Zero type errors. |
-| 6.6 | Write comprehensive `README.md` (project overview, architecture diagram, setup instructions, API usage examples, Langfuse screenshots). | README contains: badges, description, architecture diagram, quickstart guide, API reference, and evaluation results. |
-| 6.7 | Final Git push to GitHub with clean commit history. | Repository is public. README renders correctly. All CI checks pass. |
+| [x] 6.1 | Build evaluation dataset (20+ question-answer pairs with expected scores). | Gold-standard test set covers all SOP topics. |
+| [x] 6.2 | Run **Faithfulness** evaluation using LLM-as-a-judge. | Faithfulness score ≥ 95% across the evaluation dataset. |
+| [x] 6.3 | Run **Answer Relevancy** evaluation. | Relevancy score ≥ 90% across the evaluation dataset. |
+| [x] 6.4 | Finalize `Dockerfile` and `docker-compose.yml` (FastAPI + PostgreSQL + ChromaDB). | `docker compose up` starts all services. API is accessible and functional. |
+| [x] 6.5 | Run `Ruff` linter and `mypy` type checker. Fix all issues. | Zero lint errors. Zero type errors. |
+| [x] 6.6 | Write comprehensive `README.md` (project overview, architecture diagram, setup instructions, API usage examples, Langfuse screenshots). | README contains: badges, description, architecture diagram, quickstart guide, API reference, and evaluation results. |
+| [x] 6.7 | Final Git push to GitHub with clean commit history. | Repository is up to date with enterprise-standard SOPs. |
+
+---
+
+## Phase 7: Frontend & Dashboard Development
+
+**Goal:** Create a high-fidelity user interface for employees and supervisors.
+
+| # | Task | Definition of Done |
+|---|---|---|
+| [x] 7.1 | Initialize React/Vite/TS project with modern styling (Lucide, HSL-based CSS). | Frontend builds and runs. Basic layout with sidebar and main content area. |
+| [x] 7.2 | Implement real-time chat interface with SSE streaming support. | Chat messages appear as they are generated by the backend. Logic handling for "thought process" visualization. |
+| [x] 7.3 | Build Progress Dashboard for employees. | Visualization of syllabus, completed topics, and quiz scores in Sidebar. |
+| [x] 7.4 | Build Supervisor Review interface for HITL approval. | Dedicated modal to see pending certifications, transcript review, and Approve/Reject buttons. |
+| [x] 7.5 | Implement Langfuse Web Analytics. | Frontend events tracked to Langfuse for end-to-end user path analysis. |
 
 **Phase 6 Deliverable:** A polished, publicly presentable portfolio project with quantified AI quality metrics.
 

@@ -27,7 +27,8 @@ from sse_starlette.sse import EventSourceResponse
 
 from src.api.dependencies import get_graph_instance
 from src.core.config import get_settings
-from src.schemas.requests import ChatRequest
+from src.core.observability import get_langfuse_callback
+from src.schemas.requests import ChatRequest, FeedbackRequest
 from src.schemas.responses import ChatResponse
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ async def _get_session_state(graph, session_id: str) -> dict:
 
 
 async def _stream_graph_response(
-    graph, session_id: str, input_dict: dict = None
+    graph, session_id: str, input_dict: dict = None, user_id: str = None
 ) -> AsyncIterator[dict]:
     """
     Async generator that streams graph execution events as SSE data.
@@ -86,8 +87,21 @@ async def _stream_graph_response(
 
     try:
         final_state = None
+        # Initialize Langfuse Callback
+        langfuse_handler = get_langfuse_callback(
+            trace_name="chat-stream",
+            session_id=session_id,
+            user_id=user_id
+        )
+        callbacks = [langfuse_handler] if langfuse_handler else []
+
         # Using stream_mode=["messages", "values"] allows us to see internal messages from sub-agents
-        async for event_type, event_data in graph.astream(input_dict, config, stream_mode=["messages", "values"]):
+        async for event_type, event_data in graph.astream(
+            input_dict, 
+            config, 
+            stream_mode=["messages", "values"],
+            config={"callbacks": callbacks}
+        ):
             if event_type == "messages":
                 chunk, metadata = event_data
 
@@ -101,9 +115,14 @@ async def _stream_graph_response(
                 # Emit agent_start on first real node detection
                 if detected_agent is None and node_name != "unknown":
                     detected_agent = node_name
+                    # Get trace_id from langfuse_handler if available
+                    trace_id = getattr(langfuse_handler, "trace_id", None)
                     yield {
                         "event": "agent_start",
-                        "data": json.dumps({"agent": detected_agent}),
+                        "data": json.dumps({
+                            "agent": detected_agent,
+                            "trace_id": trace_id
+                        }),
                     }
 
                 # Only stream AIMessageChunk (streaming) or AIMessage (full response from a node)
@@ -252,8 +271,11 @@ async def chat(
 
     # Stream the response via SSE, passing the user message as input
     # BUG-3 FIX: No longer pre-computing intent or target_node
+    # Pass user_id if available in request (assuming ChatRequest has it or we can derive it)
+    user_id = getattr(request, "user_id", None)
+    
     return EventSourceResponse(
-        _stream_graph_response(graph, session_id, {"messages": [user_msg]}),
+        _stream_graph_response(graph, session_id, {"messages": [user_msg]}, user_id=user_id),
         media_type="text/event-stream",
     )
 
@@ -306,8 +328,20 @@ async def chat_sync(
     user_msg = HumanMessage(content=request.message)
 
     try:
+        # Initialize Langfuse Callback
+        user_id = getattr(request, "user_id", None)
+        langfuse_handler = get_langfuse_callback(
+            trace_name="chat-sync",
+            session_id=session_id,
+            user_id=user_id
+        )
+        callbacks = [langfuse_handler] if langfuse_handler else []
+
         # BUG-2 FIX: Use ainvoke for async checkpointer
-        result = await graph.ainvoke({"messages": [user_msg]}, config)
+        result = await graph.ainvoke(
+            {"messages": [user_msg]}, 
+            {**config, "callbacks": callbacks}
+        )
     except Exception as e:
         logger.exception("Chat invoke failed for session '%s'", session_id)
         raise HTTPException(
@@ -343,3 +377,42 @@ async def chat_sync(
         message=ai_message,
         requires_approval=requires_approval,
     )
+
+
+@router.post(
+    "/sessions/{session_id}/feedback",
+    summary="Submit user feedback for a trace",
+    description="Submit a score and optional comment for a specific interaction.",
+)
+async def submit_feedback(
+    session_id: str,
+    request: FeedbackRequest,
+):
+    """
+    Submits feedback to Langfuse.
+    
+    If trace_id is not provided, it will be hard to link, but Langfuse
+    can sometimes link via session_id if configured. Best is to pass trace_id from frontend.
+    """
+    settings = get_settings()
+    if not settings.LANGFUSE_PUBLIC_KEY or not settings.LANGFUSE_SECRET_KEY:
+        return {"status": "skipped", "message": "Langfuse not configured"}
+
+    try:
+        from langfuse import Langfuse
+        langfuse = Langfuse(
+            public_key=settings.LANGFUSE_PUBLIC_KEY,
+            secret_key=settings.LANGFUSE_SECRET_KEY,
+            host=settings.LANGFUSE_HOST
+        )
+        
+        langfuse.score(
+            trace_id=request.trace_id,
+            name=request.name,
+            value=request.score,
+            comment=request.comment
+        )
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Failed to submit feedback to Langfuse: {e}")
+        return {"status": "error", "detail": str(e)}

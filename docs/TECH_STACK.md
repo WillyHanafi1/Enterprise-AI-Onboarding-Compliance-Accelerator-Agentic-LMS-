@@ -79,12 +79,15 @@ This document outlines every technology chosen for this project, with version pi
 | **Testing Framework** | `pytest` | `9.0.3` | Standard Python testing. Supports async tests via `pytest-asyncio`. |
 | **Environment Mgt** | `pydantic-settings` | `2.14.1` | Type-safe environment variable management. |
 
-## 9. Containerization & Deployment
-
+## 9. Frontend Application
 | Category | Choice | Version | Justification |
 |---|---|---|---|
-| **Container Runtime** | `Docker` | `latest` | Ensures reproducible environments across dev, staging, and production. |
-| **Multi-Service Orchestration** | `Docker Compose` | `v2` | Defines and runs FastAPI + PostgreSQL + ChromaDB as a single stack. |
+| **Framework** | `React` + `Vite` | `React 19` / `Vite 6` | High performance, fast HMR, and modern component ecosystem. |
+| **Styling** | `Vanilla CSS` + `TailwindCSS` (Optional) | `latest` | High flexibility for premium, custom designs. |
+| **State Management** | `TanStack Query` (React Query) | `v5` | Robust caching and server-state management for API responses. |
+| **Icons** | `Lucide React` | `latest` | Consistent, lightweight, and modern iconography. |
+
+## 10. Containerization & Deployment
 
 ---
 

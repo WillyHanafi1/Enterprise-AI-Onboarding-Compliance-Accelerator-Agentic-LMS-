@@ -1,7 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useRef, useEffect, useState } from 'react';
-import { Bot, Send, MessageSquare, FileText } from 'lucide-react';
+import { Bot, Send, MessageSquare, FileText, ThumbsUp, ThumbsDown } from 'lucide-react';
 import styles from './ChatWindow.module.css';
 
 /* Agent node name → friendly display name */
@@ -141,11 +141,32 @@ export default function ChatWindow({
                 </ReactMarkdown>
               </div>
 
-              {msg.timestamp && (
-                <div className={styles.messageTime}>
-                  {formatTime(msg.timestamp)}
-                </div>
-              )}
+              <div className={styles.messageFooter}>
+                {msg.timestamp && (
+                  <div className={styles.messageTime}>
+                    {formatTime(msg.timestamp)}
+                  </div>
+                )}
+
+                {msg.role === 'assistant' && msg.traceId && (
+                  <div className={styles.feedbackButtons}>
+                    <button 
+                      onClick={() => onFeedback(msg.traceId, 1)} 
+                      className={styles.feedbackBtn}
+                      title="Helpful"
+                    >
+                      <ThumbsUp size={12} />
+                    </button>
+                    <button 
+                      onClick={() => onFeedback(msg.traceId, -1)} 
+                      className={styles.feedbackBtn}
+                      title="Not helpful"
+                    >
+                      <ThumbsDown size={12} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}

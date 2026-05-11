@@ -1,143 +1,128 @@
-# Enterprise AI Onboarding & Compliance Accelerator (Agentic LMS)
+# 🚀 Enterprise AI Onboarding & Compliance Accelerator (Agentic LMS)
 
-[![Python](https://img.shields.io/badge/Python-3.12%2B-blue)](https://www.python.org/)
-[![LangGraph](https://img.shields.io/badge/Orchestration-LangGraph-orange)](https://github.com/langchain-ai/langgraph)
-[![FastAPI](https://img.shields.io/badge/API-FastAPI-green)](https://fastapi.tiangolo.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12%2B-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![LangGraph](https://img.shields.io/badge/Orchestration-LangGraph-orange?style=for-the-badge)](https://github.com/langchain-ai/langgraph)
+[![Gemini](https://img.shields.io/badge/AI-Google%20Gemini-red?style=for-the-badge&logo=google-gemini&logoColor=white)](https://ai.google.dev/)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-green?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/Frontend-React%2019-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Langfuse](https://img.shields.io/badge/Observability-Langfuse-black?style=for-the-badge)](https://langfuse.com/)
 
-An enterprise-grade, multi-agent Learning Management System (LMS) designed to automate employee onboarding through **Agentic RAG** and **Flow Engineering**. Built with LangGraph and Google Gemini.
+> **Standardizing Enterprise Onboarding through Agentic Workflows and Flow Engineering.**
 
----
-
-## 🚀 Overview
-
-The **Enterprise AI Onboarding LMS** transforms static compliance training into an interactive, personalized journey. Using a team of specialized AI agents, the system plans a custom syllabus, teaches internal policies using RAG, assesses understanding through free-text reasoning, and requires human oversight for final certification.
-
-### Key Features
-- **🎯 Personalized Planning**: Dynamically generates a syllabus based on employee roles.
-- **📚 Agentic RAG**: Explainer Agent retrieves and teaches ground-truth company SOPs.
-- **⚖️ LLM-as-a-Judge**: Assessor Agent evaluates complex answers against compliance standards.
-- **🔄 State Persistence**: Resumable sessions using SQLite/PostgreSQL checkpointers.
-- **👨‍✈️ Human-in-the-Loop**: Integrated supervisor approval gate for certification.
-- **📊 Observability**: Full tracing and evaluation via Langfuse.
+The **Enterprise AI Onboarding LMS** is a production-grade multi-agent system designed to transform static company policies into an interactive, high-fidelity learning experience. By leveraging **LangGraph** for orchestration and **Agentic RAG** for knowledge retrieval, it automates the entire employee integration journey—from personalized syllabus planning to human-verified certification.
 
 ---
 
-## 🏗️ Architecture
+## 🌟 The Vision: From Static to Agentic
+Traditional onboarding involves reading hundreds of pages of static PDFs, leading to low engagement and compliance risks. This project reimagines the process as a **conversational journey** where AI agents don't just "show" information, but "teach" and "verify" understanding in real-time.
 
-The system is orchestrated as a directed graph using **LangGraph**, enabling non-linear state transitions and reliable multi-agent collaboration.
+### The 4C Onboarding Framework
+Our system is architected around the industry-standard **4C Framework**:
+1.  **Compliance:** Automated teaching of legal and administrative SOPs (AML, GDPR, IT Security).
+2.  **Clarification:** Role-specific KPI alignment and technical expectation setting.
+3.  **Culture:** Immersive introduction to company vision and core values (SPEED).
+4.  **Connection:** Guided integration into team workflows and internal tools.
 
-```mermaid
-graph TD
-    __start__([Start]) --> StartChoice{Syllabus?}
-    StartChoice -- No --> Planner[Planner Agent]
-    StartChoice -- Yes --> Router{Router}
-    
-    Planner --> END([END / Wait for User])
-    
-    Router -- Learn --> Explainer[Explainer Agent]
-    Router -- Quiz --> Assessor[Assessor Agent]
-    Router -- Status --> StatusAgent[Status Agent]
-    
-    Explainer --> END
-    StatusAgent --> END
-    
-    Assessor --> GradeCheck{Grade >= 80?}
-    GradeCheck -- Fail --> Explainer
-    GradeCheck -- Pass --> Advance[Advance Topic]
-    
-    Advance --> TopicCheck{All Topics Done?}
-    TopicCheck -- More --> END
-    TopicCheck -- Done --> Certifier[Certifier Agent]
-    
-    Certifier --> END
-```
+---
+
+## 🏗️ Multi-Agent Ecosystem
+The core of the system is a team of specialized agents working in a stateful, cyclic graph.
+
+| Agent | Responsibility | Key Tech |
+| :--- | :--- | :--- |
+| **🎯 Curriculum Planner** | Analyzes employee role and creates a prioritized, logical syllabus. | Dynamic Graph State |
+| **📚 Explainer (RAG)** | Provides hallucination-free tutoring grounded in company SOPs. | Vector DB + Semantic Search |
+| **⚖️ Assessor (Judge)** | Generates case-study questions and grades answers via structured rubrics. | LLM-as-a-Judge |
+| **👨‍✈️ Supervisor (HITL)** | Human-in-the-loop gatekeeper who reviews results before certification. | LangGraph Interrupts |
+| **🎓 Certifier** | Issues final verifiable credentials and session summaries. | State Persistence |
+
+---
+
+## 🛠️ Advanced Engineering & Flow
+### 1. Flow Engineering with LangGraph
+Unlike simple linear chains, our system uses a **Directed Acyclic Graph (DAG)** with conditional edges:
+- **Remediation Loop:** If a trainee fails a quiz (score < 80), the graph automatically routes them back to the `Explainer Agent` for targeted remediation.
+- **State Persistence:** Using SQLite checkpointers, sessions are resumable. A trainee can stop mid-lesson and resume days later without data loss.
+
+### 2. Agentic RAG Pipeline
+We don't just dump text into an LLM. Our pipeline includes:
+- **Hybrid Ingestion:** Processes high-fidelity Markdown SOPs with enterprise metadata.
+- **Semantic Retrieval:** Uses ChromaDB and Gemini Embeddings to find the most relevant policy clauses.
+- **Contextual Grounding:** Every explanation is anchored to a specific company document to prevent hallucinations.
+
+### 3. Real-time API & Streaming
+The backend is a **FastAPI** server that streams agent reasoning via **Server-Sent Events (SSE)**. This allows the frontend to show:
+- *"Searching internal policies..."*
+- *"Evaluating your answer against the security rubric..."*
+- Real-time token streaming for a seamless chat experience.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Core**: Python 3.12+, LangGraph, LangChain
-- **LLM**: Google Gemini 3 Flash Preview (standardized across all agents)
-- **Database**: 
-  - **Vector**: ChromaDB (RAG)
-  - **Relational**: PostgreSQL / SQLite (Persistence)
-- **Backend**: FastAPI with Server-Sent Events (SSE)
-- **Frontend**: React, Vite, Vanilla CSS
-- **Observability**: Langfuse
+| Category | Technology | Description |
+| :--- | :--- | :--- |
+| **Core** | ![Python](https://img.shields.io/badge/Python-3.12%2B-blue?style=flat-square&logo=python&logoColor=white) | Async-native runtime for AI orchestration. |
+| **Orchestration** | ![LangGraph](https://img.shields.io/badge/LangGraph-1.1.10-orange?style=flat-square) | Cyclic, stateful multi-agent workflow engine. |
+| **Brain (LLM)** | ![Gemini](https://img.shields.io/badge/Google%20Gemini-3%20Flash-red?style=flat-square&logo=google-gemini&logoColor=white) | High-speed inference & 1M+ context window. |
+| **Vector DB** | ![ChromaDB](https://img.shields.io/badge/ChromaDB-1.5.9-green?style=flat-square) | Semantic storage for enterprise SOP retrieval. |
+| **API** | ![FastAPI](https://img.shields.io/badge/FastAPI-0.136-blue?style=flat-square&logo=fastapi&logoColor=white) | High-performance backend with SSE streaming. |
+| **Frontend** | ![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black) | Premium, responsive user & supervisor interface. |
+| **Observability**| ![Langfuse](https://img.shields.io/badge/Langfuse-4.6.1-black?style=flat-square) | End-to-end tracing, evaluation, and cost tracking. |
 
 ---
 
-## 🚦 Getting Started
+## 📈 Observability & Evaluation
+Integrated with **Langfuse**, the system provides full transparency into the AI's "thought process":
+- **Trace Visualization:** View exactly how a question moved from the Router to the Assessor.
+- **Cost & Latency Tracking:** Monitor token usage per agent node.
+- **Efficacy Metrics:** Evaluate the **CLEAR** framework (Cost, Latency, Efficacy, Assurance, Reliability).
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.12 or higher
-- Node.js & npm (for frontend)
-- Google Gemini API Key
+- **Python 3.12+**
+- **Node.js 20+**
+- **Google Gemini API Key**
 
-### Backend Setup
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/WillyHanafi1/Enterprise-AI-Onboarding-Compliance-Accelerator-Agentic-LMS-.git
-   cd Enterprise-AI-Onboarding-Compliance-Accelerator-Agentic-LMS-
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: .\venv\Scripts\activate
-   pip install .[dev]
-   ```
-
-3. **Configure Environment**:
-   Create a `.env` file in the root:
-   ```env
-   GEMINI_API_KEY=your_key_here
-   DATABASE_URL=sqlite:///checkpointer.db
-   LANGFUSE_PUBLIC_KEY=...
-   LANGFUSE_SECRET_KEY=...
-   ```
-
-> [!IMPORTANT]
-> This project is standardized to use `gemini-3-flash-preview` across all agents and evaluation judges to ensure high-fidelity reasoning and consistent structured outputs.
-
-4. **Ingest Documents (RAG)**:
-   Place your markdown SOPs in `data/sops/` and run:
-   ```bash
-   python scripts/ingest_sops.py
-   ```
-
-5. **Run the Server**:
-   ```bash
-   python -m src.api.server
-   ```
-
-### Frontend Setup
-1. **Navigate to frontend**:
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-2. **Run Development Server**:
-   ```bash
-   npm run dev
-   ```
-
----
-
-## 🧪 Testing
-
-The project uses `pytest` for rigorous testing of agents and graph logic:
+### 1. Backend Setup
 ```bash
-pytest tests/test_graph.py
-pytest tests/test_agents.py
+# Clone the repository
+git clone https://github.com/WillyHanafi1/Enterprise-AI-Onboarding-Compliance-Accelerator-Agentic-LMS-.git
+cd Enterprise-AI-Onboarding-Compliance-Accelerator-Agentic-LMS-
+
+# Install dependencies (using uv recommended)
+pip install .
+```
+
+### 2. Ingest Enterprise Data
+```bash
+# Place your SOPs in data/sops/
+python scripts/ingest_sops.py
+```
+
+### 3. Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
 ---
 
-## 📝 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 🔮 Roadmap: The Operational Co-pilot
+The future of this project involves moving beyond learning into **Actionable Operations**:
+- **Live Connectors:** Integrate with CRM (Salesforce/HubSpot) to pull real-time project data.
+- **Action Tools:** Enable agents to draft emails, send e-signs, and create tasks in Jira.
+- **Role-Based Access (RBAC):** Ensure the agent respects enterprise data silos.
 
 ---
-*Built for the future of Enterprise AI Onboarding.*
+
+### 👨‍💻 Author
+**Willy Hanafi**
+*AI Engineer & Agentic Systems Specialist*
+
+---
+*Built with ❤️ using LangGraph, Gemini, and FastAPI.*

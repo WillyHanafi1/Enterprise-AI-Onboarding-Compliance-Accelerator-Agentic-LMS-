@@ -14,6 +14,7 @@ from langchain_core.messages import HumanMessage
 
 from src.api.dependencies import get_graph_instance
 from src.core.config import get_settings
+from src.core.observability import get_langfuse_callback
 from src.schemas.requests import SessionCreateRequest
 from src.schemas.responses import SessionCreateResponse, SessionStatusResponse
 
@@ -72,8 +73,19 @@ async def create_session(
     }
 
     try:
+        # Initialize Langfuse Callback
+        langfuse_handler = get_langfuse_callback(
+            trace_name="session-creation",
+            session_id=session_id,
+            user_id=request.user_id
+        )
+        callbacks = [langfuse_handler] if langfuse_handler else []
+
         # BUG-2 FIX: Use ainvoke for async checkpointer compatibility
-        result = await graph.ainvoke(initial_state, config)
+        result = await graph.ainvoke(
+            initial_state, 
+            {**config, "callbacks": callbacks}
+        )
     except Exception as e:
         logger.exception("Failed to create session '%s'", session_id)
         raise HTTPException(

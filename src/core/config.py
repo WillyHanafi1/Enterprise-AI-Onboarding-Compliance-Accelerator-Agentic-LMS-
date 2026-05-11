@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Enterprise AI Onboarding LMS"
     API_PREFIX: str = "/api/v1"
     ENVIRONMENT: str = "development"
+    VERSION: str = "1.0.0"
     DEBUG: bool = True
 
     # Google Gemini API

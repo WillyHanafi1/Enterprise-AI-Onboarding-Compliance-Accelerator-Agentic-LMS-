@@ -42,18 +42,18 @@ By utilizing an agentic workflow, the system creates personalized learning paths
 
 ## 4. Scope
 
-### 4.1 In-Scope (MVP)
+### 4.1 In-Scope (MVP+)
 - Secure ingestion and retrieval of internal PDF/Markdown SOP documents.
 - AI-driven curriculum generation based on employee role.
 - Interactive tutoring with hallucination-free explanations grounded in SOPs.
 - Automated assessment using open-ended questions and LLM-as-a-judge evaluation.
 - Human-in-the-loop approval gate before certification.
+- **Frontend Web UI:** React/Vite dashboard with real-time chat and progress visualization.
 - Real-time streaming of agent reasoning via SSE.
 - Observability and tracing via Langfuse.
 
-### 4.2 Out-of-Scope (Not in MVP)
-- Frontend web UI (MVP is API-first; frontend can be added later).
-- Multi-language support (MVP is English-only).
+### 4.2 Out-of-Scope (Future)
+- Multi-language support (MVP is English/Indonesian).
 - Video or multimedia content generation.
 - Integration with existing enterprise LMS platforms (e.g., SAP SuccessFactors, Workday).
 - Mobile application.
